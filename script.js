@@ -1,4 +1,5 @@
 import { CLOUDINARY_URL, UPLOAD_PRESET } from "./cloudinary.js";
+import imageCompression from "https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/+esm";
 
 const uploadBtn = document.getElementById("uploadBtn");
 const fileInput = document.getElementById("fileInput");
@@ -9,90 +10,6 @@ const thankYou = document.getElementById("thankYou");
 const progressContainer = document.querySelector(".progress-container");
 const progressBar = document.getElementById("progressBar");
 const progressText = document.getElementById("progressText");
-
-// Compress images before upload
-async function compressImage(file) {
-
-    return new Promise((resolve) => {
-
-        const reader = new FileReader();
-
-        reader.readAsDataURL(file);
-
-        reader.onload = (event) => {
-
-            const img = new Image();
-
-            img.src = event.target.result;
-
-            img.onload = () => {
-
-                const canvas = document.createElement("canvas");
-
-                const MAX_WIDTH = 1600;
-                const MAX_HEIGHT = 1600;
-
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-
-                    if (width > MAX_WIDTH) {
-
-                        height *= MAX_WIDTH / width;
-                        width = MAX_WIDTH;
-
-                    }
-
-                } else {
-
-                    if (height > MAX_HEIGHT) {
-
-                        width *= MAX_HEIGHT / height;
-                        height = MAX_HEIGHT;
-
-                    }
-
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-
-                const ctx = canvas.getContext("2d");
-
-                ctx.drawImage(img, 0, 0, width, height);
-
-                canvas.toBlob(
-
-                    (blob) => {
-
-                        resolve(
-
-                            new File(
-                                [blob],
-                                file.name.replace(/\.[^.]+$/, ".jpg"),
-                                {
-                                    type: "image/jpeg"
-                                }
-                            )
-
-                        );
-
-                    },
-
-                    "image/jpeg",
-
-                    0.82
-
-                );
-
-            };
-
-        };
-
-    });
-
-}
 
 uploadBtn.addEventListener("click", () => {
     fileInput.click();
@@ -135,11 +52,21 @@ fileInput.addEventListener("change", async () => {
 
         for (let file of allowedFiles) {
 
-            // Compress only images
+            // Compress images only
             if (file.type.startsWith("image/")) {
 
-                file = await compressImage(file);
+                file = await imageCompression(file, {
+                    maxSizeMB: 0.5,
+                    maxWidthOrHeight: 1280,
+                    useWebWorker: true,
+                    initialQuality: 0.6
+                });
 
+                console.log(
+                    "Compressed Size:",
+                    (file.size / 1024 / 1024).toFixed(2),
+                    "MB"
+                );
             }
 
             const formData = new FormData();
@@ -148,7 +75,6 @@ fileInput.addEventListener("change", async () => {
             formData.append("upload_preset", UPLOAD_PRESET);
 
             const controller = new AbortController();
-
             const timeout = setTimeout(() => controller.abort(), 60000);
 
             const response = await fetch(CLOUDINARY_URL, {
@@ -179,10 +105,8 @@ fileInput.addEventListener("change", async () => {
         progressText.textContent = "Upload complete!";
 
         setTimeout(() => {
-
             home.style.display = "none";
             thankYou.style.display = "block";
-
         }, 700);
 
     } catch (error) {
@@ -197,7 +121,6 @@ fileInput.addEventListener("change", async () => {
         progressContainer.style.display = "none";
         progressText.style.display = "none";
         progressBar.style.width = "0%";
-
     }
 
 });
