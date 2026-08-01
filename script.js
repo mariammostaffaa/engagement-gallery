@@ -20,7 +20,6 @@ fileInput.addEventListener("change", async () => {
 
     const files = [...fileInput.files];
 
-    // Allow only images and videos
     const allowedFiles = files.filter(file =>
         file.type.startsWith("image/") ||
         file.type.startsWith("video/")
@@ -31,12 +30,10 @@ fileInput.addEventListener("change", async () => {
         return;
     }
 
-    // Maximum 20 files
     if (allowedFiles.length > 20) {
         alert("You can upload up to 20 files at a time.");
         return;
     }
-
 
     uploadBtn.disabled = true;
 
@@ -48,7 +45,7 @@ fileInput.addEventListener("change", async () => {
     const totalFiles = allowedFiles.length;
     let uploaded = 0;
 
-    uploadBtn.textContent = `Uploading 0 of ${totalFiles}...`;
+    uploadBtn.textContent = "Uploading...";
 
     try {
 
@@ -59,38 +56,42 @@ fileInput.addEventListener("change", async () => {
             formData.append("file", file);
             formData.append("upload_preset", UPLOAD_PRESET);
 
+            const controller = new AbortController();
+
+            const timeout = setTimeout(() => controller.abort(), 60000);
+
             const response = await fetch(CLOUDINARY_URL, {
                 method: "POST",
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
 
-            const data = await response.json();
+            clearTimeout(timeout);
 
             if (!response.ok) {
-                throw new Error(data.error?.message || "Upload failed");
+                throw new Error("Upload failed");
             }
 
             uploaded++;
 
-            const percentage = (uploaded / totalFiles) * 100;
+            const percentage = Math.round((uploaded / totalFiles) * 100);
 
             progressBar.style.width = `${percentage}%`;
 
             progressText.textContent =
                 `${uploaded} of ${totalFiles} uploaded`;
 
-            uploadBtn.textContent =
-                `Uploading ${uploaded} of ${totalFiles}...`;
         }
 
         progressBar.style.width = "100%";
+        progressText.textContent = "Upload complete!";
 
         setTimeout(() => {
 
             home.style.display = "none";
             thankYou.style.display = "block";
 
-        }, 500);
+        }, 700);
 
     } catch (error) {
 
