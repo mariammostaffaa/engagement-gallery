@@ -160,16 +160,16 @@ button:disabled {
         width: 170px;
         height: 42px;
         font-size: 13px;
-        bottom: 120px;
+        bottom: 110px;
     }
 
     .progress-container {
         width: 180px;
-        bottom: 95px;
+        bottom: 85px;
     }
 
     #progressText {
-        bottom: 75px;
+        bottom: 65px;
     }
 
 }
