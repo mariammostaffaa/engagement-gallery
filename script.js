@@ -37,90 +37,101 @@ fileInput.addEventListener("change", async () => {
     }
 
     uploadBtn.disabled = true;
+    uploadBtn.style.pointerEvents = "none";
 
     progressContainer.style.display = "block";
     progressText.style.display = "block";
 
     progressBar.style.width = "0%";
+    progressText.textContent = "Preparing files...";
+    uploadBtn.textContent = "Uploading...";
 
     const totalFiles = allowedFiles.length;
     let uploaded = 0;
 
-    uploadBtn.textContent = "Uploading...";
+    async function uploadFile(file) {
+
+        if (file.type.startsWith("image/")) {
+
+            file = await imageCompression(file, {
+                maxSizeMB: 0.5,
+                maxWidthOrHeight: 1280,
+                useWebWorker: true,
+                initialQuality: 0.6
+            });
+
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", UPLOAD_PRESET);
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 60000);
+
+        const response = await fetch(CLOUDINARY_URL, {
+            method: "POST",
+            body: formData,
+            signal: controller.signal,
+            cache: "no-store"
+        });
+
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+            throw new Error("Upload failed");
+        }
+
+        uploaded++;
+
+        const percentage = Math.round((uploaded / totalFiles) * 100);
+
+        progressBar.style.width = `${percentage}%`;
+        progressText.textContent = `${uploaded} of ${totalFiles} uploaded`;
+    }
 
     try {
 
-        for (let file of allowedFiles) {
+        const CONCURRENT_UPLOADS = 4;
 
-            // Compress images only
-            if (file.type.startsWith("image/")) {
+        for (let i = 0; i < allowedFiles.length; i += CONCURRENT_UPLOADS) {
 
-                file = await imageCompression(file, {
-                    maxSizeMB: 0.5,
-                    maxWidthOrHeight: 1280,
-                    useWebWorker: true,
-                    initialQuality: 0.6
-                });
+            const batch = allowedFiles.slice(i, i + CONCURRENT_UPLOADS);
 
-                console.log(
-                    "Compressed Size:",
-                    (file.size / 1024 / 1024).toFixed(2),
-                    "MB"
-                );
-            }
-
-            const formData = new FormData();
-
-            formData.append("file", file);
-            formData.append("upload_preset", UPLOAD_PRESET);
-
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 60000);
-
-            const response = await fetch(CLOUDINARY_URL, {
-                method: "POST",
-                body: formData,
-                signal: controller.signal,
-                cache: "no-store"
-            });
-
-            clearTimeout(timeout);
-
-            if (!response.ok) {
-                throw new Error("Upload failed");
-            }
-
-            uploaded++;
-
-            const percentage = Math.round((uploaded / totalFiles) * 100);
-
-            progressBar.style.width = `${percentage}%`;
-
-            progressText.textContent =
-                `${uploaded} of ${totalFiles} uploaded`;
+            await Promise.all(
+                batch.map(file => uploadFile(file))
+            );
 
         }
 
         progressBar.style.width = "100%";
         progressText.textContent = "Upload complete!";
 
+        fileInput.value = "";
+
         setTimeout(() => {
+
             home.style.display = "none";
             thankYou.style.display = "block";
+
         }, 700);
 
-    } catch (error) {
+    }
+
+    catch (error) {
 
         console.error(error);
 
         alert("Upload failed. Please try again.");
 
         uploadBtn.disabled = false;
+        uploadBtn.style.pointerEvents = "auto";
         uploadBtn.textContent = "Upload Your Memories";
 
         progressContainer.style.display = "none";
         progressText.style.display = "none";
         progressBar.style.width = "0%";
+
     }
 
 });
