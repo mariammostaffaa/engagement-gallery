@@ -10,6 +10,90 @@ const progressContainer = document.querySelector(".progress-container");
 const progressBar = document.getElementById("progressBar");
 const progressText = document.getElementById("progressText");
 
+// Compress images before upload
+async function compressImage(file) {
+
+    return new Promise((resolve) => {
+
+        const reader = new FileReader();
+
+        reader.readAsDataURL(file);
+
+        reader.onload = (event) => {
+
+            const img = new Image();
+
+            img.src = event.target.result;
+
+            img.onload = () => {
+
+                const canvas = document.createElement("canvas");
+
+                const MAX_WIDTH = 1600;
+                const MAX_HEIGHT = 1600;
+
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+
+                    if (width > MAX_WIDTH) {
+
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+
+                    }
+
+                } else {
+
+                    if (height > MAX_HEIGHT) {
+
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+
+                    }
+
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext("2d");
+
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+
+                    (blob) => {
+
+                        resolve(
+
+                            new File(
+                                [blob],
+                                file.name.replace(/\.[^.]+$/, ".jpg"),
+                                {
+                                    type: "image/jpeg"
+                                }
+                            )
+
+                        );
+
+                    },
+
+                    "image/jpeg",
+
+                    0.82
+
+                );
+
+            };
+
+        };
+
+    });
+
+}
+
 uploadBtn.addEventListener("click", () => {
     fileInput.click();
 });
@@ -49,7 +133,14 @@ fileInput.addEventListener("change", async () => {
 
     try {
 
-        for (const file of allowedFiles) {
+        for (let file of allowedFiles) {
+
+            // Compress only images
+            if (file.type.startsWith("image/")) {
+
+                file = await compressImage(file);
+
+            }
 
             const formData = new FormData();
 
@@ -63,7 +154,8 @@ fileInput.addEventListener("change", async () => {
             const response = await fetch(CLOUDINARY_URL, {
                 method: "POST",
                 body: formData,
-                signal: controller.signal
+                signal: controller.signal,
+                cache: "no-store"
             });
 
             clearTimeout(timeout);
@@ -105,6 +197,7 @@ fileInput.addEventListener("change", async () => {
         progressContainer.style.display = "none";
         progressText.style.display = "none";
         progressBar.style.width = "0%";
+
     }
 
 });
